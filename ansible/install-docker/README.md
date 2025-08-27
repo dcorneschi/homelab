@@ -25,15 +25,6 @@ The playbook performs the following tasks:
 - **SSH Access**: Configured SSH key-based authentication to target hosts
 - **Sudo Privileges**: The ansible user must have sudo access on target hosts
 
-## Directory Structure
-
-```
-install-docker/
-├── README.md
-├── install-docker.yml    # Main playbook
-└── inventory.ini        # Inventory file with target hosts
-```
-
 ## Components Installed
 
 The playbook installs the following Docker components:
@@ -122,18 +113,13 @@ After successful installation:
    sudo systemctl status docker
    ```
 
-2. **Test Docker functionality**:
-   ```bash
-   docker run hello-world
-   ```
-
-3. **Check Docker version**:
+2. **Check Docker version**:
    ```bash
    docker --version
    docker compose version
    ```
 
-4. **Users in docker group may need to log out and back in** for group membership to take effect.
+3. **Users in docker group may need to log out and back in** for group membership to take effect.
 
 ## Supported Operating Systems
 
@@ -145,34 +131,6 @@ After successful installation:
 - Docker daemon runs as root by default
 - Consider implementing Docker's rootless mode for enhanced security
 - Review Docker's security best practices documentation
-
-## Troubleshooting
-
-### Common Issues
-
-1. **GPG Key Issues**:
-   ```bash
-   # Manual GPG key verification
-   curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-   ```
-
-2. **Repository Issues**:
-   ```bash
-   # Verify repository configuration
-   cat /etc/apt/sources.list.d/docker.list
-   ```
-
-3. **Service Start Issues**:
-   ```bash
-   # Check Docker service logs
-   sudo journalctl -u docker.service
-   ```
-
-4. **Permission Issues**:
-   ```bash
-   # Verify user is in docker group
-   groups $USER
-   ```
 
 ### Log Locations
 
