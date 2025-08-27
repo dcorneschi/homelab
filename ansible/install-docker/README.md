@@ -127,9 +127,11 @@ After successful installation:
 
 3. **Users in docker group may need to log out and back in** for group membership to take effect.
 
-## Supported Operating Systems
+## Supported Operating Systems (tested)
 
-- Tested on Ubuntu 20.04 LTS (Focal Fossa)
+- Ubuntu 20.04 LTS (Focal Fossa)
+- Ubuntu 22.04 LTS (Jammy Jellyfish)
+- Ubuntu 24.04 LTS (Noble Numbat)
 
 ## Security Considerations
 
