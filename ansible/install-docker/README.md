@@ -182,7 +182,3 @@ This playbook is provided as-is for educational and operational use.
 For issues related to:
 - **Docker**: Refer to [Docker Documentation](https://docs.docker.com/)
 - **Ansible**: Refer to [Ansible Documentation](https://docs.ansible.com/)
-
----
-
-**Last Updated**: 2025-08-27
