@@ -70,6 +70,7 @@ Run the playbook against all hosts in the inventory:
 
 ```bash
 ansible-playbook -i inventory.ini install-docker.yml
+ansible-playbook -i inventory.ini install-docker.yml -k           # use this if you don't have SSH keys and want to use the password 
 ```
 
 ### Installation with Custom Variables
