@@ -9,7 +9,7 @@ A comprehensive collection of Infrastructure as Code (IaC) scripts, configuratio
 ![Kubernetes](https://img.shields.io/badge/kubernetes-%23326ce5.svg?style=for-the-badge&logo=kubernetes&logoColor=white)
 ![Terraform](https://img.shields.io/badge/terraform-%235835CC.svg?style=for-the-badge&logo=terraform&logoColor=white)
 
-## Support
+## 🤝 Support
 
 If you find this project helpful and would like to support its development, consider buying me a coffee! Your support helps me maintain and improve this project.
 
