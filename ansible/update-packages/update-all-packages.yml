@@ -1,0 +1,177 @@
+---
+- name: Update all packages on Ubuntu and Red Hat systems
+  hosts: all
+  become: yes
+  gather_facts: yes
+  vars:
+    # Reboot configuration
+    reboot_required: false
+    force_reboot: false
+    reboot_timeout: 300
+    
+  tasks:
+    - name: Display target system information
+      debug:
+        msg: "Updating packages on {{ inventory_hostname }} ({{ ansible_distribution }} {{ ansible_distribution_version }})"
+
+    # Ubuntu/Debian tasks
+    - name: Update apt cache (Ubuntu/Debian)
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+      tags: ubuntu
+
+    - name: Upgrade all packages (Ubuntu/Debian)
+      apt:
+        upgrade: dist
+        autoremove: yes
+        autoclean: yes
+      register: ubuntu_upgrade_result
+      when: ansible_os_family == "Debian"
+      tags: ubuntu
+
+    - name: Check if reboot is required (Ubuntu/Debian)
+      stat:
+        path: /var/run/reboot-required
+      register: ubuntu_reboot_required
+      when: ansible_os_family == "Debian"
+      tags: ubuntu
+
+    # Red Hat/CentOS/RHEL tasks
+    - name: Update yum cache (RHEL/CentOS 7)
+      yum:
+        update_cache: yes
+      when: 
+        - ansible_os_family == "RedHat"
+        - ansible_distribution_major_version|int <= 7
+      tags: redhat
+
+    - name: Update dnf cache (RHEL/CentOS 8+)
+      dnf:
+        update_cache: yes
+      when: 
+        - ansible_os_family == "RedHat"
+        - ansible_distribution_major_version|int >= 8
+      tags: redhat
+
+    - name: Upgrade all packages with yum (RHEL/CentOS 7)
+      yum:
+        name: "*"
+        state: latest
+        exclude: kernel*
+      register: rhel7_upgrade_result
+      when: 
+        - ansible_os_family == "RedHat"
+        - ansible_distribution_major_version|int <= 7
+      tags: redhat
+
+    - name: Upgrade all packages with dnf (RHEL/CentOS 8+)
+      dnf:
+        name: "*"
+        state: latest
+        exclude: kernel*
+      register: rhel8_upgrade_result
+      when: 
+        - ansible_os_family == "RedHat"
+        - ansible_distribution_major_version|int >= 8
+      tags: redhat
+
+    - name: Check for kernel updates (Red Hat)
+      shell: |
+        if command -v dnf > /dev/null 2>&1; then
+          dnf list installed kernel | tail -n +2 | wc -l
+        else
+          yum list installed kernel | tail -n +2 | wc -l
+        fi
+      register: kernel_count
+      changed_when: false
+      when: ansible_os_family == "RedHat"
+      tags: redhat
+
+    - name: Upgrade kernel separately (Red Hat)
+      package:
+        name: kernel
+        state: latest
+      register: kernel_upgrade_result
+      when: 
+        - ansible_os_family == "RedHat"
+        - kernel_count.stdout|int > 1
+      tags: redhat
+
+    # Common tasks for both distributions
+    - name: Clean package cache
+      shell: |
+        if command -v apt > /dev/null 2>&1; then
+          apt autoremove -y && apt autoclean
+        elif command -v dnf > /dev/null 2>&1; then
+          dnf autoremove -y && dnf clean all
+        elif command -v yum > /dev/null 2>&1; then
+          yum autoremove -y && yum clean all
+        fi
+      changed_when: false
+      tags: cleanup
+
+    # Determine if reboot is needed
+    - name: Set reboot required flag (Ubuntu)
+      set_fact:
+        reboot_required: true
+      when: 
+        - ansible_os_family == "Debian"
+        - ubuntu_reboot_required.stat.exists
+      tags: reboot
+
+    - name: Set reboot required flag (Red Hat - kernel update)
+      set_fact:
+        reboot_required: true
+      when: 
+        - ansible_os_family == "RedHat"
+        - kernel_upgrade_result is defined
+        - kernel_upgrade_result.changed
+      tags: reboot
+
+    - name: Display upgrade summary
+      debug:
+        msg: |
+          Package upgrade summary for {{ inventory_hostname }}:
+          - Distribution: {{ ansible_distribution }} {{ ansible_distribution_version }}
+          - Packages updated: {{ 'Yes' if (ubuntu_upgrade_result.changed|default(false) or rhel7_upgrade_result.changed|default(false) or rhel8_upgrade_result.changed|default(false)) else 'No' }}
+          - Kernel updated: {{ 'Yes' if (kernel_upgrade_result.changed|default(false)) else 'No' }}
+          - Reboot required: {{ 'Yes' if reboot_required else 'No' }}
+
+    # Optional reboot handling
+    - name: Reboot system if required
+      reboot:
+        msg: "Rebooting due to package updates"
+        pre_reboot_delay: 10
+        post_reboot_delay: 30
+        reboot_timeout: "{{ reboot_timeout }}"
+      when: 
+        - reboot_required or force_reboot
+        - ansible_connection != 'local'
+      tags: reboot
+
+    - name: Wait for system to become reachable after reboot
+      wait_for_connection:
+        connect_timeout: 20
+        sleep: 5
+        delay: 5
+        timeout: "{{ reboot_timeout }}"
+      when: 
+        - reboot_required or force_reboot
+        - ansible_connection != 'local'
+      tags: reboot
+
+    - name: Verify system is back online
+      ping:
+      when: 
+        - reboot_required or force_reboot
+        - ansible_connection != 'local'
+      tags: reboot
+
+  handlers:
+    - name: restart systemd-logind
+      systemd:
+        name: systemd-logind
+        state: restarted
+      when: ansible_service_mgr == "systemd"
