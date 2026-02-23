@@ -20,13 +20,3 @@ If you find this project helpful and would like to support its development, cons
          style="height: 50px !important; width: auto !important;">
   </a>
 </div>
-
----
-
-<div align="center">
-
-**Made with ❤️ by [Daniel Corneschi](https://github.com/dcorneschi)**
-
-**⭐ Star this repository if it helped you build your homelab!**
-
-</div>
