@@ -57,13 +57,4 @@
 
 </div>
 
-## Available Cheatsheets
 
-| Tool | Description |
-|------|-------------|
-| [crictl](crictl/) | Container runtime debugging commands for Kubernetes nodes |
-| [Helm](helm/) | Kubernetes package management — repos, charts, releases, and development |
-| [k9s](k9s/) | Terminal UI for navigating and managing Kubernetes clusters |
-| [Kitty](kitty/) | GPU-accelerated terminal emulator with tabs, splits, and kittens |
-| [Terraform](terraform/) | Infrastructure as Code — init, plan, apply, state, and utilities |
-| [tmux](tmux/) | Terminal multiplexer — sessions, windows, panes, and copy mode |
