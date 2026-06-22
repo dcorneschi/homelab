@@ -319,9 +319,3 @@ ss -Htn state all | awk '{print $1}' | sort | uniq -c | sort -rn
 For a full explanation of the 11 TCP states, the connection lifecycle, handshake diagrams, and which side holds each state, see:
 
 * [TCP States Explained](./tcp-states-explained.md)
-
-## Resources
-
-* [ss(8) man page](https://man7.org/linux/man-pages/man8/ss.8.html)
-* [iproute2 (upstream source)](https://github.com/iproute2/iproute2)
-* [RFC 793 — Transmission Control Protocol](https://www.rfc-editor.org/rfc/rfc793)
