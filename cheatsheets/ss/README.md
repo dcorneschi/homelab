@@ -1,0 +1,327 @@
+<h1 align="center">ss (Socket Statistics) Cheatsheet</h1>
+
+<p align="center">
+  <a href="#basic-usage">Basic Usage</a> •
+  <a href="#common-flags">Flags</a> •
+  <a href="#practical-examples">Examples</a> •
+  <a href="#real-world-troubleshooting">Troubleshooting</a> •
+  <a href="#tcp-states">TCP States</a>
+</p>
+
+Comprehensive ss (socket statistics) reference guide covering common flags, practical socket inspection examples, and real-world troubleshooting for connection states, port exhaustion, socket memory, and TCP retransmits. ss queries the kernel directly via netlink, making it significantly faster than netstat (which reads /proc).
+
+## Basic Usage
+
+```bash
+ss                    # Show all established connections
+ss -s                 # Summary statistics (total sockets by type)
+ss -h                 # Help
+```
+
+## Common Flags
+
+| Flag | Description |
+|------|-------------|
+| `-t` | TCP sockets |
+| `-u` | UDP sockets |
+| `-l` | Listening sockets only |
+| `-a` | All sockets (listening + established) |
+| `-n` | Don't resolve service names (show port numbers) |
+| `-p` | Show process using the socket |
+| `-e` | Show extended socket info |
+| `-i` | Show TCP internal info (RTT, congestion) |
+| `-4` | IPv4 only |
+| `-6` | IPv6 only |
+
+## Practical Examples
+
+### List all listening TCP ports with process names
+
+```bash
+ss -tlnp
+```
+
+### List all listening UDP ports
+
+```bash
+ss -ulnp
+```
+
+### Show all established connections
+
+```bash
+ss -tn
+```
+
+### Find what process is using a specific port
+
+```bash
+ss -tlnp | grep :8080
+ss -tlnp 'sport = :8080'
+```
+
+### Filter by port number
+
+```bash
+ss -tn sport = :443             # Source port 443
+ss -tn dport = :443             # Destination port 443
+ss -tn sport = :80 or sport = :443   # Multiple ports
+```
+
+### Filter by state
+
+```bash
+ss -t state established         # Only established
+ss -t state listening           # Only listening
+ss -t state time-wait           # Only TIME_WAIT
+ss -t state close-wait          # Only CLOSE_WAIT
+ss -t state fin-wait-1          # Only FIN_WAIT_1
+ss -t state syn-recv            # Only SYN_RECV (half-open)
+```
+
+### Filter by IP address
+
+```bash
+ss -tn dst 10.0.0.5            # Connections to specific IP
+ss -tn src 192.168.1.10        # Connections from specific IP
+ss -tn dst 10.0.0.0/24         # Connections to a subnet
+```
+
+### Count connections per state
+
+```bash
+ss -t | awk '{print $1}' | sort | uniq -c | sort -rn
+```
+
+### Count connections per remote IP
+
+```bash
+ss -tn | awk 'NR>1 {print $5}' | cut -d: -f1 | sort | uniq -c | sort -rn | head -10
+```
+
+### Show TCP connections with timer info
+
+```bash
+ss -tn -o
+```
+
+### Show detailed TCP info (RTT, congestion window)
+
+```bash
+ss -ti
+```
+
+### Show memory usage per socket
+
+```bash
+ss -tm
+```
+
+### Find CLOSE_WAIT connections (potential leak)
+
+```bash
+ss -tn state close-wait
+ss -tnp state close-wait        # With process info to find the culprit
+```
+
+### Find TIME_WAIT connections (high volume = port exhaustion risk)
+
+```bash
+ss -tn state time-wait | wc -l
+ss -t state time-wait                    # Show all TIME_WAIT connections
+ss -t state time-wait sport = :80        # TIME_WAIT on your local port 80 (server side)
+ss -t state time-wait dst :80            # TIME_WAIT to remote port 80 (client/proxy side)
+ss -t state time-wait dst 10.0.0.50      # TIME_WAIT to a specific remote IP
+```
+
+### Show all UNIX domain sockets
+
+```bash
+ss -x
+ss -xlp                         # Listening UNIX sockets with process
+```
+
+### Show socket summary (quick health check)
+
+```bash
+ss -s
+```
+
+## Real-World Troubleshooting
+
+### Check if a service is listening
+
+```bash
+ss -tlnp | grep nginx
+ss -tlnp | grep :3306           # MySQL
+ss -tlnp | grep :6379           # Redis
+ss -tlnp | grep :5432           # PostgreSQL
+```
+
+### Detect SYN flood (many SYN_RECV)
+
+```bash
+ss -tn state syn-recv | wc -l
+```
+
+### Monitor connections in real-time (watch)
+
+```bash
+watch -n 1 'ss -s'
+watch -n 1 'ss -tn state established | wc -l'
+```
+
+### Find connections to a specific service from all clients
+
+```bash
+ss -tn sport = :443 | awk 'NR>1 {print $5}' | cut -d: -f1 | sort -u
+ss -tn sport = :22 | awk 'NR>1 {print $5}' | cut -d: -f1 | sort -u    # Who's SSHed in
+```
+
+### Check send/receive queue (buffered data)
+
+```bash
+ss -tn | awk '$2 > 0 || $3 > 0'   # Non-zero queues = potential issue
+```
+
+High `Recv-Q` on LISTEN = connections waiting to be accepted (app too slow).
+High `Send-Q` on ESTAB = data waiting to be sent (network congestion or slow peer).
+
+
+### Connection count per port (what services are busy)
+
+```bash
+ss -tn | awk 'NR>1 {print $4}' | rev | cut -d: -f1 | rev | sort | uniq -c | sort -rn
+```
+
+### Connections per state per port
+
+```bash
+ss -tan | awk 'NR>1 {split($4,a,":"); print $1, a[length(a)]}' | sort | uniq -c | sort -rn
+```
+
+### Top talkers — IPs with most connections
+
+```bash
+ss -tn | awk 'NR>1 {print $5}' | cut -d: -f1 | sort | uniq -c | sort -rn | head -20
+```
+
+### Connections per IP per port (detect abuse per service)
+
+```bash
+ss -tn | awk 'NR>1 {split($4,l,":"); split($5,r,":"); print r[1], l[length(l)]}' | sort | uniq -c | sort -rn | head -20
+```
+
+### Detect port exhaustion (ephemeral port usage)
+
+```bash
+cat /proc/sys/net/ipv4/ip_local_port_range    # Show ephemeral range (e.g. 32768-60999)
+ss -tn | awk 'NR>1 {split($4,a,":"); p=a[length(a)]; if(p>=32768 && p<=60999) c++} END {print c, "/ 28231 ephemeral ports used"}'
+```
+
+Ephemeral ports are only used for the client side of outbound connections.**
+Each time the box initiates a connection out (DNS, apt, curl, a DB client, a monitoring agent phoning home), the kernel grabs one port from the range `32768–60999`. Inbound connections to your listening services (sshd on 22, web server on 80/443) use the fixed service port locally, not an ephemeral one, so they don't add to this count. A server that mostly *listens* rather than *connects out* will idle at a handful.
+
+They're counted only while the connection is active.**
+Once a connection closes and clears `TIME_WAIT`, the port is freed and drops off the count. A quiet server idles at a handful; pressure only shows up under heavy outbound churn.
+
+To see what those active ephemeral ports actually are (local port, remote endpoint, and owning process):
+
+```bash
+ss -tnp state established '( sport >= 32768 )'
+```
+
+### Socket backlog — are connections being dropped?
+
+```bash
+ss -tln | awk 'NR>1 && $2 > 0 {print "WARNING: backlog on port", $4, "Recv-Q:", $2}'
+```
+
+On a LISTEN socket:
+- `Recv-Q` = number of connections waiting to be accepted
+- `Send-Q` = max backlog size (set by application)
+
+If `Recv-Q` approaches `Send-Q`, connections are being dropped.
+
+```bash
+ss -tln | awk 'NR>1 {split($4,a,":"); printf "Port %-6s Backlog: %s/%s", a[length(a)], $2, $3; if($2/$3 > 0.8) printf " ⚠️  NEAR FULL"; print ""}'
+```
+
+### Orphaned sockets (no process attached)
+
+```bash
+ss -tn state close-wait | wc -l              # Orphaned connections (app forgot to close)
+cat /proc/sys/net/ipv4/tcp_max_orphans       # System limit
+```
+
+### Socket memory usage per connection
+
+```bash
+ss -tnm | grep -A1 ESTAB | grep skmem
+```
+
+Output:
+```
+skmem:(r0,rb131072,t0,tb16384,f0,w0,o0,bl0,d0)
+```
+
+Fields:
+- `r` = read buffer used
+- `rb` = read buffer max
+- `t` = write buffer used
+- `tb` = write buffer max
+- `f` = forward allocated
+- `w` = queued for transmit
+- `bl` = backlog
+- `d` = drops
+
+### Total memory used by all TCP sockets
+
+```bash
+cat /proc/net/sockstat
+```
+
+`mem` is in pages (4KB each). `mem 45` = ~180KB used by TCP.
+
+### TCP retransmits (packet loss indicator)
+
+```bash
+ss -ti | grep -c retrans
+ss -ti | grep retrans              # Show which connections have retransmits
+```
+
+Or from system-wide stats:
+
+```bash
+cat /proc/net/snmp | grep Tcp | awk 'NR==2 {print "Retransmits:", $12, "Segments sent:", $11, "Ratio:", $12/$11*100 "%"}'
+```
+
+### Connection duration — find long-lived connections
+
+```bash
+ss -tnoe | awk 'NR>1 && /timer/' | sort -t, -k2 -rn | head -10
+```
+
+## Show all connections in every state
+
+```bash
+ss -tn state all
+```
+
+### Connections in each TCP state (full breakdown)
+
+```bash
+ss -Htn state all | awk '{print $1}' | sort | uniq -c | sort -rn
+```
+
+## TCP States
+
+For a full explanation of the 11 TCP states, the connection lifecycle, handshake diagrams, and which side holds each state, see:
+
+* [TCP States Explained](./tcp-states-explained.md)
+
+## Resources
+
+* [ss(8) man page](https://man7.org/linux/man-pages/man8/ss.8.html)
+* [iproute2 (upstream source)](https://github.com/iproute2/iproute2)
+* [RFC 793 — Transmission Control Protocol](https://www.rfc-editor.org/rfc/rfc793)
