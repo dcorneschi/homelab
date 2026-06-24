@@ -1,4 +1,4 @@
-<h1 align="center">ss (Socket Statistics) Cheatsheet</h1>
+<h1 align="center">ss Cheatsheet</h1>
 
 <p align="center">
   <a href="#basic-usage">Basic Usage</a> •
