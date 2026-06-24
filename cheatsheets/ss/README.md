@@ -139,8 +139,6 @@ ss -xlp                         # Listening UNIX sockets with process
 ss -s
 ```
 
-## Real-World Troubleshooting
-
 ### Check if a service is listening
 
 ```bash
@@ -294,7 +292,7 @@ cat /proc/net/snmp | grep Tcp | awk 'NR==2 {print "Retransmits:", $12, "Segments
 ss -tnoe | awk 'NR>1 && /timer/' | sort -t, -k2 -rn | head -10
 ```
 
-## Show all connections in every state
+### Show all connections in every state
 
 ```bash
 ss -tn state all
@@ -306,9 +304,9 @@ ss -tn state all
 ss -Htn state all | awk '{print $1}' | sort | uniq -c | sort -rn
 ```
 
-# TCP States Explained
+## TCP States Explained
 
-## TCP Connection Overview
+### TCP Connection Overview
 
 TCP is a **full-duplex**, connection-oriented protocol operating at the transport layer. A TCP connection goes through three phases:
 
@@ -320,11 +318,11 @@ The connection passes through **11 states** during its lifetime: CLOSED, LISTEN,
 
 The OS manages each connection as a resource (socket + file descriptor). The `ss` command lets you inspect these states in real time.
 
-## TCP State Transition Diagram
+### TCP State Transition Diagram
 
 ![TCP state machine](./images/tcp_state_diagram.svg)
 
-## TCP States Reference (RFC 793)
+### TCP States Reference (RFC 793)
 
 | State | Who Has It | Definition | Meaning in Practice | Concern |
 |-------|-----------|-----------|---------------------|---------|
@@ -339,5 +337,3 @@ The OS manages each connection as a resource (socket + file descriptor). The `ss
 | **CLOSING** | Both | Both sides sent FIN simultaneously, waiting for ACK | Both sides sent FIN simultaneously | Rare, transient |
 | **LAST_ACK** | Passive closer | Sent FIN after receiving remote's FIN, waiting for final ACK | Sent FIN after CLOSE_WAIT, waiting for final ACK | Stuck = firewall dropping packets |
 | **TIME_WAIT** | Active closer | Waiting 2×MSL (typically 60s) before fully closing, ensures late packets are handled | Connection closed properly, socket stays 60s for late packets | Normal, but too many = port exhaustion |
-
-* [TCP States Explained](./tcp-states-explained.md)
