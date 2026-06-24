@@ -310,9 +310,9 @@ ss -Htn state all | awk '{print $1}' | sort | uniq -c | sort -rn
 
 TCP is a **full-duplex**, connection-oriented protocol operating at the transport layer. A TCP connection goes through three phases:
 
-1. **Connection establishment** — 3-way handshake (SYN → SYN-ACK → ACK)
-2. **Data transfer** — bidirectional data flow (ESTABLISHED state)
-3. **Connection termination** — 4-way handshake (FIN → ACK → FIN → ACK)
+> 1. **Connection establishment** — 3-way handshake (SYN → SYN-ACK → ACK)
+> 2. **Data transfer** — bidirectional data flow (ESTABLISHED state)
+> 3. **Connection termination** — 4-way handshake (FIN → ACK → FIN → ACK)
 
 The connection passes through **11 states** during its lifetime: CLOSED, LISTEN, SYN_SENT, SYN_RECV, ESTABLISHED, FIN_WAIT_1, FIN_WAIT_2, CLOSE_WAIT, CLOSING, LAST_ACK, TIME_WAIT.
 
