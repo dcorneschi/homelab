@@ -42,7 +42,7 @@ Your Project Directory:
 - Account Settings → Security → Personal Access Tokens
 - Create token with "Public Repo Read-only" permissions
 
-<img width="647" height="386" alt="Docker_access_token" src="https://gist.github.com/user-attachments/assets/163b02b9-8a7e-4c65-8c7e-2e3361821ad8" />
+![docker_access_token](./images/docker_access_token.png)
 
 #### 2. Generate Base64 Auth String
 
