@@ -45,6 +45,18 @@ ss -ulnp
 ss -tn
 ```
 
+### Show all connections in every state
+
+```bash
+ss -tn state all
+```
+
+### Connections in each TCP state (full breakdown)
+
+```bash
+ss -Htn state all | awk '{print $1}' | sort | uniq -c | sort -rn
+```
+
 ### Find what process is using a specific port
 
 ```bash
@@ -290,18 +302,6 @@ cat /proc/net/snmp | grep Tcp | awk 'NR==2 {print "Retransmits:", $12, "Segments
 
 ```bash
 ss -tnoe | awk 'NR>1 && /timer/' | sort -t, -k2 -rn | head -10
-```
-
-### Show all connections in every state
-
-```bash
-ss -tn state all
-```
-
-### Connections in each TCP state (full breakdown)
-
-```bash
-ss -Htn state all | awk '{print $1}' | sort | uniq -c | sort -rn
 ```
 
 ## TCP States Explained
