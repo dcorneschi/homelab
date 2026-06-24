@@ -221,10 +221,10 @@ cat /proc/sys/net/ipv4/ip_local_port_range    # Show ephemeral range (e.g. 32768
 ss -tn | awk 'NR>1 {split($4,a,":"); p=a[length(a)]; if(p>=32768 && p<=60999) c++} END {print c, "/ 28231 ephemeral ports used"}'
 ```
 
-> Ephemeral ports are only used for the client side of outbound connections.**
+> Ephemeral ports are only used for the client side of outbound connections.
 Each time the box initiates a connection out (DNS, apt, curl, a DB client, a monitoring agent phoning home), the kernel grabs one port from the range `32768–60999`. Inbound connections to your listening services (sshd on 22, web server on 80/443) use the fixed service port locally, not an ephemeral one, so they don't add to this count. A server that mostly *listens* rather than *connects out* will idle at a handful.
 
-> They're counted only while the connection is active.**
+> They're counted only while the connection is active.
 Once a connection closes and clears `TIME_WAIT`, the port is freed and drops off the count. A quiet server idles at a handful; pressure only shows up under heavy outbound churn.
 
 > To see what those active ephemeral ports actually are (local port, remote endpoint, and owning process):
