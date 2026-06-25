@@ -178,6 +178,13 @@ ss -t state time-wait                    # Show all TIME_WAIT connections
 ss -t state time-wait sport = :80        # TIME_WAIT on your local port 80 (server side)
 ss -t state time-wait dst :80            # TIME_WAIT to remote port 80 (client/proxy side)
 ss -t state time-wait dst 10.0.0.50      # TIME_WAIT to a specific remote IP
+
+# TIME_WAIT sockets grouped by destination (top offenders)
+ss -Htn state time-wait | awk '{print $4}' | sort | uniq -c | sort -rn | head -10
+
+# All connections to a specific destination
+ss -Htn dst 10.0.0.50 | wc -l
+ss -Htn state time-wait dst 10.0.0.50 | wc -l
 ```
 
 ### Show all UNIX domain sockets
