@@ -217,6 +217,15 @@ watch -n 1 'ss -tn state established | wc -l'                    # Established c
 watch -n 1 'ss -s'                                               # Full summary
 ```
 
+### Monitor connections over time
+
+```bash
+while true; do
+    echo "$(date): $(ss -tan | grep ESTAB | wc -l) connections"
+    sleep 60
+done > connection_count.log
+```
+
 ### Find connections to a specific service from all clients
 
 ```bash
@@ -411,6 +420,19 @@ The OS manages each connection as a resource (socket + file descriptor). The `ss
 | **CLOSING** | Both | Both sides sent FIN simultaneously, waiting for ACK | Both sides sent FIN simultaneously | Rare, transient |
 | **LAST_ACK** | Passive closer | Sent FIN after receiving remote's FIN, waiting for final ACK | Sent FIN after CLOSE_WAIT, waiting for final ACK | Stuck = firewall dropping packets |
 | **TIME_WAIT** | Active closer | Waiting 2×MSL (typically 60s) before fully closing, ensures late packets are handled | Connection closed properly, socket stays 60s for late packets | Normal, but too many = port exhaustion |
+
+## Kernel Tuning Parameters Related to ss Output
+
+```bash
+# View current TCP tuning
+sysctl net.ipv4.tcp_max_syn_backlog       # Max SYN_RECV queue
+sysctl net.core.somaxconn                 # Max listen backlog
+sysctl net.ipv4.tcp_max_tw_buckets        # Max TIME_WAIT sockets
+sysctl net.ipv4.tcp_fin_timeout           # How long FIN_WAIT_2 lasts
+sysctl net.ipv4.tcp_tw_reuse              # Reuse TIME_WAIT for outbound
+sysctl net.ipv4.ip_local_port_range       # Ephemeral port range
+sysctl net.ipv4.tcp_max_orphans           # Max orphaned (CLOSE_WAIT) sockets
+```
 
 ## Metrics That Impact Server Performance
 
