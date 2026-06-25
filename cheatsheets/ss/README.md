@@ -19,9 +19,15 @@ Comprehensive ss (socket statistics) reference guide covering common flags, prac
 | `-l` | Listening sockets only |
 | `-a` | All sockets (listening + established) |
 | `-n` | Don't resolve service names (show port numbers) |
+| `-r` | Resolve IP addresses to hostnames |
 | `-p` | Show process using the socket |
 | `-e` | Show extended socket info |
 | `-i` | Show TCP internal info (RTT, congestion) |
+| `-m` | Show socket memory usage |
+| `-o` | Show timer information |
+| `-s` | Show socket statistics summary |
+| `-w` | Show raw sockets |
+| `-x` | Show Unix domain sockets |
 | `-4` | IPv4 only |
 | `-6` | IPv6 only |
 
@@ -67,10 +73,46 @@ ss -tlnp 'sport = :8080'
 ### Filter by port number
 
 ```bash
-ss -tn sport = :443             # Source port 443
-ss -tn dport = :443             # Destination port 443
-ss -tn sport = :80 or sport = :443   # Multiple ports
+ss -tn sport = :443                          # Source port 443
+ss -tn dport = :443                          # Destination port 443
+ss -tn sport = :80 or sport = :443           # Multiple ports
 ```
+
+### Filter by port range
+
+```bash
+ss -tn sport gt :1024                        # Source port > 1024
+ss -tn dport lt :1024                        # Destination port < 1024
+ss -tn sport ge :8000 and sport le :9000     # Range 8000-9000
+```
+
+### Advanced filter expressions
+
+```bash
+# Connections to port 80 or 443 from specific subnet
+ss -tn '( dport = :80 or dport = :443 ) and src 192.168.1.0/24'
+
+# Not from localhost
+ss -tn dst != 127.0.0.1
+
+# Multiple conditions
+ss -tn sport ge :1024 and sport le :65535 state established
+```
+
+### Filter operators
+
+| Operator | Alias | Description |
+|----------|-------|-------------|
+| `=` | `eq` | Equal |
+| `!=` | `ne` | Not equal |
+| `>` | `gt` | Greater than |
+| `<` | `lt` | Less than |
+| `>=` | `ge` | Greater than or equal |
+| `<=` | `le` | Less than or equal |
+| `and` | | Logical AND |
+| `or` | | Logical OR |
+| `not` | | Logical NOT |
+| `()` | | Grouping |
 
 ### Filter by state
 
@@ -169,8 +211,10 @@ ss -tn state syn-recv | wc -l
 ### Monitor connections in real-time (watch)
 
 ```bash
-watch -n 1 'ss -s'
-watch -n 1 'ss -tn state established | wc -l'
+watch -n 2 'ss -tan | wc -l'                                     # Total connection count
+watch -n 1 'ss -tan sport = :80 | grep ESTAB | wc -l'            # Monitor specific port
+watch -n 1 'ss -tn state established | wc -l'                    # Established count
+watch -n 1 'ss -s'                                               # Full summary
 ```
 
 ### Find connections to a specific service from all clients
@@ -304,6 +348,36 @@ cat /proc/net/snmp | grep Tcp | awk 'NR==2 {print "Retransmits:", $12, "Segments
 ss -tnoe | awk 'NR>1 && /timer/' | sort -t, -k2 -rn | head -10
 ```
 
+### Check congestion control algorithm
+
+```bash
+ss -ti | grep -E 'cubic|bbr|reno'
+```
+
+### Find maximum segment size
+
+```bash
+ss -ti | grep mss
+```
+
+## Comparison with netstat
+
+### ss advantages
+- Much faster (uses netlink instead of /proc)
+- More efficient on systems with many connections
+- Better filtering capabilities
+- Shows more detailed socket information
+
+### Command equivalents
+
+| netstat | ss |
+|---------|-----|
+| `netstat -tan` | `ss -tan` |
+| `netstat -tulpn` | `ss -tulpn` |
+| `netstat -s` | `ss -s` |
+| `netstat -r` | `ip route` |
+| `netstat -i` | `ip -s link` |
+
 ## TCP States Explained
 
 ### TCP Connection Overview
@@ -324,16 +398,33 @@ The OS manages each connection as a resource (socket + file descriptor). The `ss
 
 ### TCP States Reference (RFC 793)
 
-| State | Who Has It | How to check | Definition | Meaning in Practice | Concern |
-|-------|-----------|-------------|-----------|---------------------|---------|
-| **CLOSED** | Neither | N/A (invisible to `ss`) | No connection exists | Connection fully terminated | Normal |
-| **LISTEN** | Server | `ss -tln` | Waiting for a connection request from a remote endpoint (passive open) | Socket waiting for incoming connections (your service is ready) | If missing, service is down |
-| **SYN_SENT** | Client | `ss -tn state syn-sent` | Sent a SYN, waiting for SYN-ACK (active open initiated) | Sent SYN, waiting for SYN-ACK from remote | Stuck = remote not reachable |
-| **SYN_RECV** | Server | `ss -tn state syn-recv` | Received a SYN, sent SYN-ACK, waiting for final ACK (half-open) | Got SYN, sent SYN-ACK, waiting for final ACK | Many = SYN flood attack |
-| **ESTABLISHED** | Both | `ss -tn state established` | Three-way handshake complete, connection is open and data flows | Connection is active, data flowing both ways | Normal healthy state |
-| **FIN_WAIT_1** | Active closer | `ss -tn state fin-wait-1` | Sent a FIN (active close initiated), waiting for ACK or FIN | Your side sent FIN, waiting for remote ACK | Stuck = remote unresponsive or firewall issue |
-| **FIN_WAIT_2** | Active closer | `ss -tn state fin-wait-2` | Received ACK for our FIN, waiting for remote's FIN | Remote ACKed the FIN, waiting for remote's FIN | Stuck = remote app not closing |
-| **CLOSE_WAIT** | Passive closer | `ss -tn state close-wait` | Received FIN from remote, sent ACK, waiting for local app to close | Remote closed, YOUR app hasn't called `close()` yet | App bug if growing — memory/fd leak |
-| **CLOSING** | Both | `ss -tn state closing` | Both sides sent FIN simultaneously, waiting for ACK | Both sides sent FIN simultaneously | Rare, transient |
-| **LAST_ACK** | Passive closer | `ss -tn state last-ack` | Sent FIN after receiving remote's FIN, waiting for final ACK | Sent FIN after CLOSE_WAIT, waiting for final ACK | Stuck = firewall dropping packets |
-| **TIME_WAIT** | Active closer | `ss -tn state time-wait` | Waiting 2×MSL (typically 60s) before fully closing, ensures late packets are handled | Connection closed properly, socket stays 60s for late packets | Normal, but too many = port exhaustion |
+| State | Who Has It | Definition | Meaning in Practice | Concern |
+|-------|-----------|-----------|---------------------|---------|
+| **CLOSED** | Neither | No connection exists | Connection fully terminated | Normal |
+| **LISTEN** | Server | Waiting for a connection request from a remote endpoint (passive open) | Socket waiting for incoming connections (your service is ready) | If missing, service is down |
+| **SYN_SENT** | Client | Sent a SYN, waiting for SYN-ACK (active open initiated) | Sent SYN, waiting for SYN-ACK from remote | Stuck = remote not reachable |
+| **SYN_RECV** | Server | Received a SYN, sent SYN-ACK, waiting for final ACK (half-open) | Got SYN, sent SYN-ACK, waiting for final ACK | Many = SYN flood attack |
+| **ESTABLISHED** | Both | Three-way handshake complete, connection is open and data flows | Connection is active, data flowing both ways | Normal healthy state |
+| **FIN_WAIT_1** | Active closer | Sent a FIN (active close initiated), waiting for ACK or FIN | Your side sent FIN, waiting for remote ACK | Stuck = remote unresponsive or firewall issue |
+| **FIN_WAIT_2** | Active closer | Received ACK for our FIN, waiting for remote's FIN | Remote ACKed the FIN, waiting for remote's FIN | Stuck = remote app not closing |
+| **CLOSE_WAIT** | Passive closer | Received FIN from remote, sent ACK, waiting for local app to close | Remote closed, YOUR app hasn't called `close()` yet | App bug if growing — memory/fd leak |
+| **CLOSING** | Both | Both sides sent FIN simultaneously, waiting for ACK | Both sides sent FIN simultaneously | Rare, transient |
+| **LAST_ACK** | Passive closer | Sent FIN after receiving remote's FIN, waiting for final ACK | Sent FIN after CLOSE_WAIT, waiting for final ACK | Stuck = firewall dropping packets |
+| **TIME_WAIT** | Active closer | Waiting 2×MSL (typically 60s) before fully closing, ensures late packets are handled | Connection closed properly, socket stays 60s for late packets | Normal, but too many = port exhaustion |
+
+## Metrics That Impact Server Performance
+
+| Metric | How to check | Impact |
+|--------|-------------|--------|
+| **High ESTAB count** | `ss -tn state established \| wc -l` | Memory/CPU pressure, file descriptor exhaustion |
+| **Growing CLOSE_WAIT** | `ss -tn state close-wait \| wc -l` | Memory leak, fd leak — app not closing sockets |
+| **High TIME_WAIT** | `ss -tn state time-wait \| wc -l` | Ephemeral port exhaustion, can't open new connections |
+| **SYN_RECV spike** | `ss -tn state syn-recv \| wc -l` | SYN flood attack or backlog overflow |
+| **Recv-Q > 0 on LISTEN** | `ss -tln \| awk '$2 > 0'` | App too slow to accept connections, clients timeout |
+| **Send-Q > 0 on ESTAB** | `ss -tn \| awk '$3 > 0'` | Network congestion or slow peer, memory buildup |
+| **Retransmits** | `ss -ti \| grep retrans` | Packet loss, latency spikes, throughput drops |
+| **High RTT** | `ss -ti \| grep rtt` | Slow responses, timeouts |
+| **Orphaned sockets** | `cat /proc/net/sockstat` | Consuming memory with no process to clean up |
+| **Ephemeral port usage** | `ss -tn \| awk 'NR>1' \| wc -l` vs range | Port exhaustion = "cannot assign address" errors |
+| **Single IP with many connections** | `ss -tn \| awk 'NR>1 {print $5}' \| cut -d: -f1 \| sort \| uniq -c \| sort -rn \| head -5` | DDoS/abuse, resource hogging |
+| **Socket memory (skmem)** | `ss -tnm` | Kernel memory pressure, OOM risk |
